@@ -8,10 +8,6 @@ targets:
   punch:
     main: src/punch.cr
 
-dependencies:
-  cli:
-    github: mosop/cli
-
 crystal: 0.24.1
 
 license: MIT

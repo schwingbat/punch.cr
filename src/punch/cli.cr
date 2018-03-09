@@ -1,13 +1,16 @@
 module CLI
+  alias RunBlock = Hash(String, String | Array(String)) -> Nil
+  
   class Argument
     property name : String = ""
+    property description : String = ""
     property required : Bool = true
     property multiple : Bool = false
     property splat : Bool = false
   end
 
   class Signature
-    @arguments = [] of Argument
+    getter arguments = [] of Argument
     property string : String
     getter command : String
 
@@ -125,14 +128,39 @@ module CLI
 
   class Command
     getter signature : Signature
-    getter purpose : String
+    getter purpose : String?
     
-    @block : Hash(String, String | Array(String)) -> Nil
+    @block : RunBlock?
 
     def initialize(signature : String, @purpose, @block)
       @signature = Signature.new(signature)
       @arg_map = Hash(String, String | Array(String)).new # Must initialize to please the compiler
     end
+    
+    # For use by the command definition block
+    
+    def initialize(signature : String)
+      @signature = Signature.new(signature)
+      @arg_map = Hash(String, String | Array(String)).new
+    end
+    
+    def purpose(value : String)
+      @purpose = value
+    end
+    
+    def argument(name : String, *, description : String)
+      if arg = @signature.arguments.find { |arg| arg.name == name }
+        arg.description = description
+      else
+        raise Exception.new "No argument called #{name} exists in this command's signature"
+      end
+    end
+      
+    def run(&block : RunBlock)
+      @block = block
+    end
+    
+    # --------------------------------------
 
     def map_args(args = ARGV)
       args = args.dup
@@ -145,33 +173,51 @@ module CLI
     end
 
     def help
-      str = "\n"
-      str += "Usage: punch #{@signature.string}"
-      str += "\n"
+      "\nUsage: punch #{@signature.string}\n"
     end
 
-    def run
-      @block.call @arg_map
+    def exec
+      if @block.nil?
+        raise Exception.new "Can't run command \"#{@signature.command}\" because no run block is defined."
+      else
+        @block.as(RunBlock).call @arg_map
+      end
     end
   end
 
-  def punch(signature : String, purpose : String, &block : Hash(String, String | Array(String)) -> Nil)
+  def punch(signature : String, purpose : String, &block : RunBlock)
     @@commands << Command.new(signature, purpose, block)
+  end
+  
+  def punch(signature, &block : Command -> Nil)
+    cmd = Command.new(signature)
+    yield cmd
+    @@commands << cmd
   end
 
   def general_help
-    str = "\n"
-    str += "  punch v#{Punch::VERSION}/crystal\n\n"
-    str += "  #{"Commands".colorize.mode(:bold)}:\n"
-
-    @@commands.each do |cmd|
-      str += "    #{cmd.signature.string}\n"
-      if cmd.purpose
-        str += "      #{cmd.purpose.colorize(:dark_gray)}\n"
+    String::Builder.build do |io|
+      indent = "  "
+      br = "\n"
+      
+      io << br
+      io << indent + "punch v#{Punch::VERSION}/crystal" + br
+      io << br
+      io << indent + "How to read the command signatures:" + br
+      io << indent * 2 + "- a <param> is required" + br
+      io << indent * 2 + "- a [param] is optional" + br
+      io << indent * 2 + "- a <*param>, [*param] means that any input after this point will be considered a single value" + br
+      io << indent * 2 + "- a <param...> or [param...] means that any input after this point will be considered a list of values named `param`" + br
+      io << br
+      io << indent + "#{"Commands".colorize.mode(:bold)}" + br
+      @@commands.each do |cmd|
+        io << indent * 2 + cmd.signature.string.to_s + br
+        if cmd.purpose
+          io << indent * 3 + cmd.purpose.colorize(:dark_gray).to_s + br
+        end 
       end
+      io << br
     end
-
-    str += "\n"
   end
 
   def run(args = ARGV)
@@ -181,7 +227,7 @@ module CLI
     if matched
       matched.map_args(args)
       if matched.required_args_provided?
-        matched.run
+        matched.exec
       else
         puts matched.help
       end
