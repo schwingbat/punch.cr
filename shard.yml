@@ -1,0 +1,17 @@
+name: punch-cr
+version: 0.1.0
+
+authors:
+  - Tony McCoy <tony@ratwizard.io>
+
+targets:
+  punch:
+    main: src/punch.cr
+
+dependencies:
+  cli:
+    github: mosop/cli
+
+crystal: 0.24.1
+
+license: MIT
