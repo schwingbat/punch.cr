@@ -26,6 +26,12 @@ class Project
   })
 end
 
+# class SyncSettings
+#   JSON.mapping({
+#     auto_sync: {  }
+#   })
+# end
+
 class JSONConfig
   JSON.mapping({
     user: Person,

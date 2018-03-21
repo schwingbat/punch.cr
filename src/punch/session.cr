@@ -1,12 +1,26 @@
 class Session
+  property punchfile : Punchfile?
+  
   JSON.mapping({
     project: String,
-    in: { type: Time, converter: Time::EpochMillisConverter },
-    out: { type: Time, nilable: true, converter: Time::EpochMillisConverter },
-
+    in: { type: Time, converter: Time::EpochMillisConverter, getter: false },
+    out: { type: Time, nilable: true, converter: Time::EpochMillisConverter, getter: false },
+    rewind: Int64,
     # Have to account for the old single-comment format
     comments: { type: Array(String), setter: false },
   })
+
+  def in
+    @in.to_local
+  end
+  
+  def out
+    if @out
+      @out.as(Time).to_local
+    else
+      nil
+    end
+  end
 
   def add_comment(comment : String)
     @comments << comment

@@ -8,12 +8,38 @@ class Punchfile
     punches: Array(Session)
   })
 
+  def update
+    self.updated = Time.now
+  end
+
+  def save
+    # Write to JSON file
+  end
+
   def punch_in(project : String)
     @sessions << Session.new(project: project)
+    update
+    save
   end
+
+  def punch_out(project : String)
+    punched = @sessions.find { |s| s.project == project && s.out == nil }
+
+    puts punched
+  end
+
+  #*====================*#
+  #        Static        #
+  #*====================*#
 
   def self.read_from_json(path : String): Punchfile
     self.from_json File.read(path)
+  end
+
+  def self.read_or_create_for_time(time : Time)
+    name = "punch_#{time.year}_#{time.month}_#{time.day}.json"
+    path = File.join(Config.instance.punch_path, name)
+    read_from_json(path)
   end
 
   def self.latest_punch_for(*, project : String)

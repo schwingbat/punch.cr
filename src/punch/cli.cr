@@ -31,7 +31,7 @@ module CLI
       mapped_args = Hash(String, String | Array(String)).new
 
       @arguments.each_with_index do |argument, i|
-        if args[i]?
+        if args[i]?          
           if argument.splat
             mapped_args[argument.name] = args[i...args.size].join(" ")
           elsif argument.multiple
@@ -107,8 +107,11 @@ module CLI
             end
           end
         when '*'
-          @in_splat = true if @in_arg && !@buffer.empty?
+          @in_splat = true if @in_arg
         when ' '
+          if @in_arg
+            @buffer += @string[@i]
+          end
         else
           if @in_arg
             @buffer += @string[@i]
@@ -173,7 +176,35 @@ module CLI
     end
 
     def help
-      "\nUsage: punch #{@signature.string}\n"
+      str = "\nUsage: punch #{@signature.string}\n"
+      
+      str += "\nArguments: (#{"*".colorize(:red)} required)\n"
+      
+      max = 0
+      args = Array(Array(String)).new
+      
+      @signature.arguments.each do |arg|
+        first = "  "
+        
+        if arg.required
+          first += "* ".colorize(:red).to_s
+        else
+          first += "  "
+        end
+        
+        first += arg.name
+        
+        max = first.size if first.size > max
+        args << [first, arg.description]
+      end
+      
+      args.each do |arg|
+        leading, description = arg
+        
+        str += leading.ljust(max) + " -> ".colorize(:dark_gray).to_s + description + "\n"
+      end
+      
+      str
     end
 
     def exec
