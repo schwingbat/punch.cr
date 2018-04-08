@@ -1,5 +1,4 @@
 require "./punch/*"
-require "./punch/config/config"
 require "./punch/log/log"
 require "colorize"
 
@@ -26,7 +25,7 @@ module Punch
       path = File.join(@config.punch_path, files.last)
       punchfile = Punchfile.from_json(File.read(path))
 
-      punchfile.punches.find &.out.nil?
+      punchfile.sessions.find &.out.nil?
     end
 
     def label_for(project : String)
@@ -39,18 +38,18 @@ module Punch
 
     def rate_for(project : String)
       if conf = @config.projects[project]?
-        if conf.hourlyRate
-          return conf.hourlyRate
+        if conf.hourly_rate
+          return conf.hourly_rate
         end
       end
       return 0.0
     end
-    
-    def number_from_string(number : String)      
+
+    def number_from_string(number : String)
       if num = number.to_i32?
         return num
       end
-      
+
       numbers = [
         "zero",
         "one",
@@ -72,9 +71,9 @@ module Punch
         "seventeen",
         "eighteen",
         "nineteen",
-        "twenty"
+        "twenty",
       ]
-      
+
       index = -1
       numbers.each_with_index do |num, i|
         if num == number
@@ -82,12 +81,12 @@ module Punch
           break
         end
       end
-      
+
       index
     end
 
     def initialize
-      @config = Config.new
+      @config = Config.load
 
       punch "in <project>" do |cmd|
         cmd.purpose "Start tracking time on a project."
@@ -101,8 +100,6 @@ module Punch
 
             puts file.inspect
           end
-
-          
         end
       end
 
@@ -186,7 +183,7 @@ module Punch
           project = args["name"]
           project_info = @config.projects[project]?
           name = project_info ? project_info.name : project
-          punches = Punchfile.all_punches.select do |punch|
+          punches = Punchfile.all_sessions.select do |punch|
             punch.project === project
           end
 
@@ -214,6 +211,8 @@ module Punch
         cmd.run do |args|
           # TODO: Implement log
 
+          puts args.inspect
+
           if args["when"]?
             time = args["when"].as(String).strip.downcase
           else
@@ -226,7 +225,7 @@ module Punch
           next log.for_day(Time.now.at_beginning_of_day - 1.day) if time == "yesterday"
 
           modifier = 0
-          
+
           # Check for last __, next __, this __
           if /^last\s/.match(time)
             modifier = -1
@@ -236,23 +235,23 @@ module Punch
             time = time.split(" ")[1...time.size].join(" ").strip
           elsif /^this\s/.match(time)
             time = time.split(" ")[1...time.size].join(" ").strip
-            
-          # Then check for relative times: "two days ago", etc.
+
+            # Then check for relative times: "two days ago", etc.
           elsif matched = /^(.+) (.+) ago$/.match(time)
             number_string = matched[1]
             number = number_from_string(number_string)
             unit = matched[2]
-            
+
             modifier = -number
             time = unit
-            puts "number: #{number} (#{number_string}), unit: #{unit}"
+            # puts "number: #{number} (#{number_string}), unit: #{unit}"
           end
-          
+
           if modifier > 0
             next puts "You can't view a log for punches that haven't happened yet."
           end
-          
-          puts "modifier: #{modifier}, value: #{time}"
+
+          # puts "modifier: #{modifier}, value: #{time}"
 
           case time
           when "day", "days"
@@ -267,12 +266,12 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.monday? || counter != modifier
               counter -= 1 if day.monday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
           when "tuesday", "tuesdays"
             day = Time.now.at_beginning_of_day
@@ -280,12 +279,12 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.tuesday? || counter != modifier
               counter -= 1 if day.tuesday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
           when "wednesday", "wednesdays"
             day = Time.now.at_beginning_of_day
@@ -293,12 +292,12 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.wednesday? || counter != modifier
               counter -= 1 if day.wednesday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
           when "thursday", "thursdays"
             day = Time.now.at_beginning_of_day
@@ -306,12 +305,12 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.thursday? || counter != modifier
               counter -= 1 if day.thursday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
           when "friday", "fridays"
             day = Time.now.at_beginning_of_day
@@ -319,12 +318,12 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.friday? || counter != modifier
               counter -= 1 if day.friday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
           when "saturday", "saturdays"
             day = Time.now.at_beginning_of_day
@@ -332,12 +331,12 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.saturday? || counter != modifier
               counter -= 1 if day.saturday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
           when "sunday", "sundays"
             day = Time.now.at_beginning_of_day
@@ -345,17 +344,16 @@ module Punch
             if modifier == 0
               counter = 0
             end
-            
+
             while !day.sunday? || counter != modifier
               counter -= 1 if day.sunday?
               day -= 1.day
             end
-            
+
             log.for_day(day)
-          when "january",   "february", "march",    "april",
-               "may",       "june",     "july",     "august",
-               "september", "october",  "november", "december"
-               
+          when "january", "february", "march", "april",
+               "may", "june", "july", "august",
+               "september", "october", "november", "december"
             puts "You chose a month"
           else
             puts "Sorry, I'm not sure when you mean."

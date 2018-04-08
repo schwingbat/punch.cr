@@ -3,9 +3,9 @@ require "./config"
 
 class Punchfile
   JSON.mapping({
-    created: { type: Time, nilable: true, converter: Time::EpochMillisConverter },
-    updated: { type: Time, nilable: true, converter: Time::EpochMillisConverter },
-    punches: Array(Session)
+    created:  {type: Time, nilable: true, converter: Time::EpochMillisConverter},
+    updated:  {type: Time, nilable: true, converter: Time::EpochMillisConverter},
+    sessions: {type: Array(Session), key: "punches"},
   })
 
   def update
@@ -28,18 +28,45 @@ class Punchfile
     puts punched
   end
 
-  #*====================*#
-  #        Static        #
-  #*====================*#
+  # *====================* #
+  #         Static         #
+  # *====================* #
 
-  def self.read_from_json(path : String): Punchfile
+  private def self.name_for_time(time : Time)
+    "punch_#{time.year}_#{time.month}_#{time.day}.json"
+  end
+
+  def self.read_from_json(path : String) : Punchfile
     self.from_json File.read(path)
   end
 
   def self.read_or_create_for_time(time : Time)
-    name = "punch_#{time.year}_#{time.month}_#{time.day}.json"
+    read_for_date(time)
+    # if file = read_for_date?(time)
+    #   file
+    # else
+    #   name = name_for_time(time)
+    #   path = File.join(Config.instance.punch_path, name)
+    #   file = Punchfile.new
+    #   file.created = time
+    #   file.updated = time
+    #   file.sessions = [] of Session
+    #   file
+    # end
+  end
+
+  def self.read_for_date(time : Time)
+    name = name_for_time(time)
     path = File.join(Config.instance.punch_path, name)
     read_from_json(path)
+  end
+
+  def self.read_for_date?(time : Time)
+    begin
+      read_for_date(time)
+    rescue
+      nil
+    end
   end
 
   def self.latest_punch_for(*, project : String)
@@ -48,10 +75,10 @@ class Punchfile
     end
   end
 
-  def self.all_punches
+  def self.all_sessions
     sessions = [] of Session
     self.all.each do |file|
-      file.punches.each do |session|
+      file.sessions.each do |session|
         sessions << session
       end
     end
