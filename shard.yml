@@ -8,6 +8,10 @@ targets:
   punch:
     main: src/punch.cr
 
+dependencies:
+  kemal:
+    github: kemalcr/kemal
+
 crystal: 0.24.1
 
 license: MIT

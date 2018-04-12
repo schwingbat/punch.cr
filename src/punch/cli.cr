@@ -16,11 +16,12 @@ module CLI
 
     @i : Int32 = 0
     @end : Int32 = 0
-    @buffer : String = ""
-    @in_arg : Bool = false
-    @in_opt : Bool = false
-    @in_splat : Bool = false
-    @in_multi : Bool = false
+    @buffer = ""
+    @in_arg = false
+    @in_opt = false
+    @in_splat = false
+    @in_multi = false
+    @in_flag = false
 
     def initialize(@string)
       @command = @string.split(" ").first
@@ -29,6 +30,8 @@ module CLI
 
     def map_args(args)
       mapped_args = Hash(String, String | Array(String)).new
+
+      puts args.inspect
 
       @arguments.each_with_index do |argument, i|
         if args[i]?          
@@ -61,6 +64,7 @@ module CLI
       @in_opt = false
       @in_splat = false
       @in_multi = false
+      @in_flag = false
     end
 
     private def add_arg

@@ -1,6 +1,8 @@
 require "./punch/*"
 require "./punch/log/log"
+require "./server/server"
 require "colorize"
+require "option_parser"
 
 module Punch
   class App
@@ -50,29 +52,10 @@ module Punch
         return num
       end
 
-      numbers = [
-        "zero",
-        "one",
-        "two",
-        "three",
-        "four",
-        "five",
-        "six",
-        "seven",
-        "eight",
-        "nine",
-        "ten",
-        "eleven",
-        "twelve",
-        "thirteen",
-        "fourteen",
-        "fifteen",
-        "sixteen",
-        "seventeen",
-        "eighteen",
-        "nineteen",
-        "twenty",
-      ]
+      numbers = [ "zero", "one", "two", "three", "four", "five",
+                  "six", "seven", "eight", "nine", "ten", "eleven",
+                  "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+                  "seventeen", "eighteen", "nineteen", "twenty" ]
 
       index = -1
       numbers.each_with_index do |num, i|
@@ -207,12 +190,9 @@ module Punch
       punch "log [*when]" do |cmd|
         cmd.purpose "Show a summary of punches for a given period."
         cmd.argument "when", description: "The time period to generate a log for (try `today`, `yesterday`, `this month`, `last month`)"
+        # cmd.flag ["--project", "-p"], description: "Show only sessions that match a given project name"
 
         cmd.run do |args|
-          # TODO: Implement log
-
-          puts args.inspect
-
           if args["when"]?
             time = args["when"].as(String).strip.downcase
           else
@@ -244,22 +224,21 @@ module Punch
 
             modifier = -number
             time = unit
-            # puts "number: #{number} (#{number_string}), unit: #{unit}"
           end
 
           if modifier > 0
             next puts "You can't view a log for punches that haven't happened yet."
           end
 
-          # puts "modifier: #{modifier}, value: #{time}"
-
           case time
           when "day", "days"
             log.for_day(Time.now.at_beginning_of_day + modifier.days)
-          when "month", "months"
-            log.for_month(Time.now.at_beginning_of_month + modifier.months)
           when "week", "weeks"
             log.for_week(Time.now.at_beginning_of_week + modifier.weeks)
+          when "month", "months"
+            log.for_month(Time.now.at_beginning_of_month + modifier.months)
+          when "year", "years"
+            log.for_year(Time.now.at_beginning_of_year + modifier.years)
           when "monday", "mondays"
             day = Time.now.at_beginning_of_day
             counter = -1
@@ -413,8 +392,22 @@ module Punch
         cmd.run do |args|
           # TODO: Implement timestamp
           time = Time.parse(args["time"].as(String).downcase, DATETIME_FORMAT)
-
           puts time
+        end
+      end
+
+      punch "server [port]" do |cmd|
+        cmd.purpose "Start up the punch web server to interact with punch through a web-based GUI"
+        cmd.argument "port", description: "The port for the web server. Defaults to 5555."
+
+        cmd.run do |args|
+          if args["port"]?
+            port = args["port"].as(String).to_i
+          else
+            port = 5555
+          end
+
+          Server.start(port)
         end
       end
     end

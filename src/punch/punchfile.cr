@@ -3,17 +3,13 @@ require "./config"
 
 class Punchfile
   JSON.mapping({
-    created:  {type: Time, nilable: true, converter: Time::EpochMillisConverter},
-    updated:  {type: Time, nilable: true, converter: Time::EpochMillisConverter},
+    created:  {type: Time, converter: Time::EpochMillisConverter},
+    updated:  {type: Time, converter: Time::EpochMillisConverter},
     sessions: {type: Array(Session), key: "punches"},
   })
 
   def update
     self.updated = Time.now
-  end
-
-  def save
-    # Write to JSON file
   end
 
   def punch_in(project : String)
@@ -26,6 +22,23 @@ class Punchfile
     punched = @sessions.find { |s| s.project == project && s.out == nil }
 
     puts punched
+  end
+
+  def total_pay
+    config = Config.instance
+    pay = 0
+    @sessions.each do |session|
+      if config.projects[session.project]?
+        pay += session.duration.total_hours * config.projects[session.project].hourly_rate
+      end
+    end
+    pay
+  end
+
+  def total_time
+    @sessions.reduce(Time::Span.new(nanoseconds: 0)) do |time, session| 
+      time += session.duration
+    end
   end
 
   # *====================* #
@@ -41,7 +54,11 @@ class Punchfile
   end
 
   def self.read_or_create_for_time(time : Time)
-    read_for_date(time)
+    if file = read_for_date?(time)
+      file
+    else
+
+    end
     # if file = read_for_date?(time)
     #   file
     # else
@@ -69,6 +86,13 @@ class Punchfile
     end
   end
 
+  def self.create(time : Time)
+    name = name_for_time(time)
+    file = Punchfile.new
+
+    puts file
+  end
+
   def self.latest_punch_for(*, project : String)
     get_punchfile_list.sort.reverse.each do |path|
       puts path
@@ -90,8 +114,14 @@ class Punchfile
     punchfiles = [] of Punchfile
 
     Dir.children(config.punch_path).each do |filename|
+      next unless File.extname(filename) == ".json"
+
       path = File.join config.punch_path, filename
-      punchfiles << Punchfile.read_from_json path
+      begin
+        punchfiles << Punchfile.read_from_json path
+      rescue err
+        puts "❗  Failed to read #{filename}: #{err}".colorize(:yellow)
+      end
     end
 
     return punchfiles

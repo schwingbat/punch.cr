@@ -54,7 +54,7 @@ class Session
         time_out = out.as(Time).to_s(TIME_FORMAT).colorize(:cyan)
       end
 
-      if project = Config.instance.projects[@project]
+      if project = Config.instance.projects[@project]?
         project_name = project.name
       else
         project_name = @project
