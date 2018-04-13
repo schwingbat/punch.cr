@@ -12,22 +12,37 @@ module Punch
     DATETIME_FORMAT        = "%-m/%-d/%Y@%I:%M%p"
     DATE_FORMAT_STRING     = "MM/DD/YYYY"
     DATE_FORMAT            = "%-m/%-d/%Y"
+    TIME_FORMAT            = "%I:%M%p"
 
     @@commands = [] of CLI::Command
 
-    def get_current_session
+    def current_session
       # A current session can only be in the latest file.
       # Sort in calendar order to make sure we're checking
       # the last one.
 
-      files = Dir.children(@config.punch_path).sort_by do |f|
-        f.split(/[_\.]/)[1..3].map &.to_i32
-      end
+      files = Dir.children(@config.punch_path)
+        .select { |f| File.extname(f) == ".json" }
+        .sort_by do |f|
+          f.split(/[_\.]/)[1..3].map &.to_i32
+        end
 
       path = File.join(@config.punch_path, files.last)
       punchfile = Punchfile.from_json(File.read(path))
 
       punchfile.sessions.find &.out.nil?
+    end
+
+    def most_recent_session
+      latest_file = Dir.children(@config.punch_path)
+        .select { |f| File.extname(f) == ".json" }
+        .sort_by { |f| f.split(/[_\.]/)[1..3].map &.to_i32 }
+        .last
+
+      path = File.join(@config.punch_path, latest_file)
+      punchfile = Punchfile.from_json(File.read(path))
+
+      punchfile.sessions.last
     end
 
     def label_for(project : String)
@@ -69,19 +84,22 @@ module Punch
     end
 
     def initialize
-      @config = Config.load
+      @config = Config.load("#{ENV["HOME"]}/.punch/punchconfig.json")
 
       punch "in <project>" do |cmd|
         cmd.purpose "Start tracking time on a project."
         cmd.argument "project", description: "Name of the project to punch in on (#{@config.projects.keys[0..2].join(", ")}, etc)."
 
         cmd.run do |args|
-          if current = get_current_session
+          if current = current_session
             puts "You're already punched in on #{label_for current.project}! Punch out first."
           else
-            file = Punchfile.read_or_create_for_time(Time.now)
+            project = args["project"].as(String)
 
-            puts file.inspect
+            file = Punchfile.read_or_create_for_time(Time.now)
+            file.punch_in project, autosave: true
+
+            puts "Punched in on #{label_for project} at #{Time.now.to_s(TIME_FORMAT)}."
           end
         end
       end
@@ -91,8 +109,20 @@ module Punch
         cmd.argument "comment", description: "A description of how you spent your time."
 
         cmd.run do |args|
-          # TODO: Implement punch out
-          puts "Not implemented yet"
+          session = current_session
+
+          if !session
+            next puts "You're not punched in."
+          end
+
+          if args["comment"]?
+            session.add_comment args["comment"].as(String)
+          end
+
+          session.punch_out
+          session.save
+
+          puts "Punched out of #{label_for session.project} at #{Time.now.to_s(TIME_FORMAT)}."
         end
       end
 
@@ -101,8 +131,26 @@ module Punch
         cmd.argument "comment", description: "A description of how you spent your time."
 
         cmd.run do |args|
-          # TODO: Implement comment command
-          puts "Not implemented yet"
+          if current = current_session
+            current.add_comment args["comment"].as(String)
+            puts
+            puts "Comment Added".colorize.mode :bold
+            puts
+            puts current.to_log
+            current.save
+          elsif recent = most_recent_session
+            print "You're not currently punched in. Add comment to latest session (#{label_for recent.project} >> #{recent.in.to_s(TIME_FORMAT)} - #{recent.out.as(Time).to_s(TIME_FORMAT)}) instead? [y/n] "
+            response = gets.as(String).chomp.downcase
+
+            if response == "y"
+              recent.add_comment args["comment"].as(String)
+              puts
+              puts "Comment Added".colorize.mode :bold
+              puts
+              puts recent.to_log
+              recent.save
+            end
+          end
         end
       end
 
@@ -116,7 +164,7 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement punch creation
-          puts "Not implemented yet"
+          puts "punch create: Not implemented yet"
         end
       end
 
@@ -124,7 +172,7 @@ module Punch
         cmd.purpose "Show the status of the current session."
 
         cmd.run do |args|
-          if session = get_current_session
+          if session = current_session
             project = session.project
             time = session.in.to_s("%I:%M %P")
 
@@ -154,7 +202,7 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement watch
-          puts "Not implemented yet"
+          puts "punch watch: Not implemented yet"
         end
       end
 
@@ -170,10 +218,10 @@ module Punch
             punch.project === project
           end
 
-          total_hours = (punches.sum &.duration.total_hours).round(2)
-          total_pay = (punches.sum &.pay).round(2)
+          total_hours = format_duration(punches.sum &.duration)
+          total_pay = Currency.to_usd(punches.sum &.pay)
 
-          puts "You have worked on #{name} for a total of #{total_hours} hours and earned $#{total_pay} over #{punches.size} punches."
+          puts "You have worked on #{name} for a total of #{total_hours} and earned #{total_pay} over #{punches.size} punch#{"es" if punches.size != 1}."
         end
       end
 
@@ -183,7 +231,7 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement `invoke` so I can alias this to several calls of `project <name>`
-          puts "Not implemented yet."
+          puts "punch projects: Not implemented yet."
         end
       end
 
@@ -350,7 +398,7 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement invoicing
-          puts "Not implemented yet"
+          puts "punch invoice: Not implemented yet"
         end
       end
 
@@ -359,7 +407,7 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement sync
-          puts "Not implemented yet"
+          puts "punch sync: Not implemented yet"
         end
       end
 
@@ -368,8 +416,13 @@ module Punch
         cmd.argument "editor", description: "Name of or path to the editor you'd like to use."
 
         cmd.run do |args|
-          # TODO: Implement config editing
-          `$EDITOR #{ENV["HOME"]}/.punch/punchfile.json`
+          config_path = "#{ENV["HOME"]}/.punch/punchconfig.json"
+
+          if args["editor"]?
+            system "#{args["editor"].as(String)} #{config_path}"
+          else
+            system "$EDITOR #{config_path}"
+          end
         end
       end
 
@@ -381,7 +434,7 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement punchfile editing
-          puts "Not implemented yet"
+          puts "punch edit: Not implemented yet"
         end
       end
 
@@ -390,9 +443,8 @@ module Punch
         cmd.argument "time", description: "The date and time you'd like a timestamp for (in the format #{DATETIME_FORMAT_STRING})"
 
         cmd.run do |args|
-          # TODO: Implement timestamp
           time = Time.parse(args["time"].as(String).downcase, DATETIME_FORMAT)
-          puts time
+          puts time.epoch_ms
         end
       end
 

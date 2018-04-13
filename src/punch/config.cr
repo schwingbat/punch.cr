@@ -4,22 +4,35 @@ require "yaml"
 class Config
   JSON.mapping({
     text_colors: {type: Bool, key: "textColors", default: true},
-    punch_path:  {type: String, key: "punchPath", default: "#{ENV["HOME"]}/.punch/punches"},
+    punch_path:  {type: String, key: "punchPath", default: "#{ENV["HOME"]}/.punch/punches", getter: false, setter: false},
     user:        Person,
     clients:     Hash(String, Person),
     projects:    Hash(String, Project),
     sync:        SyncSettings,
   })
 
-  INSTANCE    = load
-  CONFIG_PATH = "#{ENV["HOME"]}/.punch/punchconfig.json"
+  @@instance : Config?
+
+  getter config_path : String?
+  setter config_path : String?
 
   def self.instance
-    INSTANCE
+    @@instance.as(Config)
   end
 
-  def self.load
-    Config.from_json File.read(CONFIG_PATH)
+  def punch_path
+    if !@config_path.nil? && @punch_path[0] == '.'
+      File.join File.dirname(@config_path.as(String)), @punch_path[1..@punch_path.size]
+    else
+      @punch_path
+    end
+  end
+
+  def self.load(path : String) : Config
+    conf = Config.from_json File.read(path)
+    conf.config_path = path
+    @@instance = conf
+    conf
   end
 end
 

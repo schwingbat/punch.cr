@@ -3,25 +3,48 @@ require "./config"
 
 class Punchfile
   JSON.mapping({
-    created:  {type: Time, converter: Time::EpochMillisConverter},
-    updated:  {type: Time, converter: Time::EpochMillisConverter},
-    sessions: {type: Array(Session), key: "punches"},
+    created:  {type: Time, converter: Time::EpochMillisConverter, default: Time.now},
+    updated:  {type: Time, converter: Time::EpochMillisConverter, default: Time.now},
+    sessions: {type: Array(Session), key: "punches", default: [] of Session, getter: false},
   })
 
-  def update
-    self.updated = Time.now
+  def initialize(time = Time.now)
+    @created = time
+    @updated = time
+    @sessions = [] of Session
   end
 
-  def punch_in(project : String)
-    @sessions << Session.new(project: project)
-    update
-    save
+  def punch_in(project : String, *, autosave = false)
+    session = Session.new(project: project)
+    @sessions << session
+    save if autosave
   end
 
-  def punch_out(project : String)
-    punched = @sessions.find { |s| s.project == project && s.out == nil }
+  def punch_out(project : String, *, autosave = false)
+    punched_in = @sessions.find { |s| s.project == project && s.punched_in? }
 
-    puts punched
+    if punched_in
+      punched_in.out = Time.now
+    else
+      raise Exception.new("No open session exists for project #{project}")
+    end
+    save if autosave
+  end
+
+  def sessions
+    @sessions.map do |session|
+      session.punchfile = self
+      session
+    end
+  end
+
+  def file_path
+    File.join Config.instance.punch_path, Punchfile.name_for_time(@created)
+  end
+
+  def save
+    @updated = Time.now
+    File.write file_path, to_json
   end
 
   def total_pay
@@ -45,7 +68,7 @@ class Punchfile
   #         Static         #
   # *====================* #
 
-  private def self.name_for_time(time : Time)
+  def self.name_for_time(time : Time)
     "punch_#{time.year}_#{time.month}_#{time.day}.json"
   end
 
@@ -57,19 +80,8 @@ class Punchfile
     if file = read_for_date?(time)
       file
     else
-
+      new(time)
     end
-    # if file = read_for_date?(time)
-    #   file
-    # else
-    #   name = name_for_time(time)
-    #   path = File.join(Config.instance.punch_path, name)
-    #   file = Punchfile.new
-    #   file.created = time
-    #   file.updated = time
-    #   file.sessions = [] of Session
-    #   file
-    # end
   end
 
   def self.read_for_date(time : Time)
@@ -86,13 +98,6 @@ class Punchfile
     end
   end
 
-  def self.create(time : Time)
-    name = name_for_time(time)
-    file = Punchfile.new
-
-    puts file
-  end
-
   def self.latest_punch_for(*, project : String)
     get_punchfile_list.sort.reverse.each do |path|
       puts path
@@ -100,13 +105,7 @@ class Punchfile
   end
 
   def self.all_sessions
-    sessions = [] of Session
-    self.all.each do |file|
-      file.sessions.each do |session|
-        sessions << session
-      end
-    end
-    return sessions
+    self.all.flat_map &.sessions
   end
 
   def self.all

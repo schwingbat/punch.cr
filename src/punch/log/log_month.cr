@@ -9,7 +9,7 @@ module Logger
 
     while day < month_end
       puts
-      header = day.to_s("%A, %B %-d").colorize.mode(:bold).to_s
+      header = day.to_s("%a, %B %-d").colorize.mode(:bold).to_s
 
       if file = Punchfile.read_for_date?(day)
         header += String.build do |s|

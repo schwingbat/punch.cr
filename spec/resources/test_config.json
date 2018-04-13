@@ -1,0 +1,39 @@
+{
+  "user": {
+    "name": "Test Person"
+  },
+  "clients": {
+    "EvilCorp": {
+      "company": "Evil Corp",
+      "name": "Tyrell Wellick"
+    }
+  },
+  "projects": {
+    "evil-app": {
+      "name": "Evil App",
+      "hourlyRate": 55.00,
+      "client": "@EvilCorp",
+      "description": "A very evil app"
+    },
+    "client-object": {
+      "name": "NOT Evil App",
+      "hourlyRate": 55.00,
+      "client": {
+        "company": "GoodCorp",
+        "name": "Gary Goodman"
+      }
+    },
+    "no-client": {
+      "name": "Clientless",
+      "hourlyRate": 55.00
+    },
+    "minimal": {
+      "name": "Just The Name"
+    }
+  },
+  "sync": {
+    "autoSync": false,
+    "backends": {}
+  },
+  "punchPath": "./punches"
+}

@@ -31,8 +31,6 @@ module CLI
     def map_args(args)
       mapped_args = Hash(String, String | Array(String)).new
 
-      puts args.inspect
-
       @arguments.each_with_index do |argument, i|
         if args[i]?          
           if argument.splat

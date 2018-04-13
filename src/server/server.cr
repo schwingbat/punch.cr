@@ -9,6 +9,10 @@ module Server
     "It works!"
   end
 
+  get "/" do
+    "It works!"
+  end
+
   def self.start(port = 5555)
     puts "Running Punch server on port #{port}"
     Kemal.run port
