@@ -287,101 +287,53 @@ module Punch
             log.for_month(Time.now.at_beginning_of_month + modifier.months)
           when "year", "years"
             log.for_year(Time.now.at_beginning_of_year + modifier.years)
-          when "monday", "mondays"
+          when "monday", "mondays",
+               "tuesday", "tuesdays",
+               "wednesday", "wednesdays",
+               "thursday", "thursdays",
+               "friday", "fridays",
+               "saturday", "saturdays",
+               "sunday", "sundays"
+
             day = Time.now.at_beginning_of_day
+            day_name = time[0..time.size - 1] if time.split("").last == 's'
+
             counter = -1
             if modifier == 0
               counter = 0
             end
 
-            while !day.monday? || counter != modifier
-              counter -= 1 if day.monday?
+            # Run backwards by day until we hit the right day
+            while day.day_of_week.to_s.downcase != day_name || counter != modifier
+              counter -= 1 if day.day_of_week.to_s.downcase == day_name
               day -= 1.day
             end
 
             log.for_day(day)
-          when "tuesday", "tuesdays"
-            day = Time.now.at_beginning_of_day
+          when "january", "february", "march", "april", "may",
+               "june", "july", "august", "september", "october",
+               "november", "december"
+
+            month = Time.now.at_beginning_of_month
+            month_name = time.gsub(/ies$/, "y")
+                             .gsub(/s$/, "")
+
             counter = -1
             if modifier == 0
               counter = 0
             end
 
-            while !day.tuesday? || counter != modifier
-              counter -= 1 if day.tuesday?
-              day -= 1.day
+            months = [ "", "january", "february", "march", "april",
+                       "may", "june", "july", "august", "september",
+                       "october", "november", "december" ]
+
+            # Run backwards by months until we hit the right month
+            while month.month != months.index(month_name) || counter != modifier
+              counter -= 1 if month.month == months.index(month_name)
+              month -= 1.month
             end
 
-            log.for_day(day)
-          when "wednesday", "wednesdays"
-            day = Time.now.at_beginning_of_day
-            counter = -1
-            if modifier == 0
-              counter = 0
-            end
-
-            while !day.wednesday? || counter != modifier
-              counter -= 1 if day.wednesday?
-              day -= 1.day
-            end
-
-            log.for_day(day)
-          when "thursday", "thursdays"
-            day = Time.now.at_beginning_of_day
-            counter = -1
-            if modifier == 0
-              counter = 0
-            end
-
-            while !day.thursday? || counter != modifier
-              counter -= 1 if day.thursday?
-              day -= 1.day
-            end
-
-            log.for_day(day)
-          when "friday", "fridays"
-            day = Time.now.at_beginning_of_day
-            counter = -1
-            if modifier == 0
-              counter = 0
-            end
-
-            while !day.friday? || counter != modifier
-              counter -= 1 if day.friday?
-              day -= 1.day
-            end
-
-            log.for_day(day)
-          when "saturday", "saturdays"
-            day = Time.now.at_beginning_of_day
-            counter = -1
-            if modifier == 0
-              counter = 0
-            end
-
-            while !day.saturday? || counter != modifier
-              counter -= 1 if day.saturday?
-              day -= 1.day
-            end
-
-            log.for_day(day)
-          when "sunday", "sundays"
-            day = Time.now.at_beginning_of_day
-            counter = -1
-            if modifier == 0
-              counter = 0
-            end
-
-            while !day.sunday? || counter != modifier
-              counter -= 1 if day.sunday?
-              day -= 1.day
-            end
-
-            log.for_day(day)
-          when "january", "february", "march", "april",
-               "may", "june", "july", "august",
-               "september", "october", "november", "december"
-            puts "You chose a month"
+            log.for_month(month)
           else
             puts "Sorry, I'm not sure when you mean."
           end
@@ -417,16 +369,13 @@ module Punch
 
         cmd.run do |args|
           config_path = "#{ENV["HOME"]}/.punch/punchconfig.json"
+          editor = args["editor"]? || ENV["EDITOR"]
 
-          if args["editor"]?
-            system "#{args["editor"].as(String)} #{config_path}"
-          else
-            system "$EDITOR #{config_path}"
-          end
+          system "#{editor} #{config_path}"
         end
       end
 
-      punch "edit <date> [editor]" do |cmd|
+      punch "edit [date] [editor]" do |cmd|
         cmd.purpose "Edit punchfile for the given date - uses EDITOR env var unless an editor is specified."
 
         cmd.argument "date", description: "Date of the punchfile you'd like to edit (in the format #{DATE_FORMAT_STRING})."
@@ -434,7 +383,22 @@ module Punch
 
         cmd.run do |args|
           # TODO: Implement punchfile editing
-          puts "punch edit: Not implemented yet"
+          punch_path = Config.instance.punch_path
+          editor = args["editor"]? || ENV["EDITOR"]
+          
+          if args["date"]?
+            begin
+              date = Time.parse(args["date"].as(String), DATE_FORMAT)
+            rescue
+              next puts "Date should be in this format: #{DATE_FORMAT_STRING}"
+            end
+          else
+            date = Time.now
+          end
+
+          file_name = File.join punch_path, "punch_#{date.year}_#{date.month}_#{date.day}.json"
+
+          system "#{editor} #{file_name}"
         end
       end
 

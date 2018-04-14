@@ -3,7 +3,8 @@ module Logger
     day = start
     month_end = start.at_end_of_month
 
-    month_end = Time.now if month_end = Time.now
+    # Sent end to current time if the month isn't yet over
+    month_end = Time.now if month_end > Time.now
 
     sessions = [] of Session
 
@@ -38,6 +39,8 @@ module Logger
       day += 1.day
     end
 
+    puts
+    puts "Sessions for #{start.to_s("%B %Y").colorize.mode(:bold)}"
     puts
     puts summary_table(sessions)
   end

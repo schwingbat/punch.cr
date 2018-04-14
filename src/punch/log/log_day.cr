@@ -13,7 +13,9 @@ module Logger
       end
       puts "\n"
 
-      puts start.to_s("")
+      puts
+      puts "Sessions for #{start.to_s("%B %-d, %Y").colorize.mode(:bold)}"
+      puts
       puts summary_table(sessions)
     else
       message = "No sessions for #{start.to_s("%A, %B %-d")}"
