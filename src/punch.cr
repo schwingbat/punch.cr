@@ -163,8 +163,31 @@ module Punch
         cmd.argument "comment", description: "A description of how you spent your time."
 
         cmd.run do |args|
-          # TODO: Implement punch creation
-          puts "punch create: Not implemented yet"
+          begin
+            time_in = Time.parse(args["time_in"].as(String), DATETIME_FORMAT)
+            time_out = Time.parse(args["time_out"].as(String), DATETIME_FORMAT)
+          rescue
+            next puts "Times must follow this format: #{DATETIME_FORMAT_STRING}"
+          end
+
+          project = args["project"].as(String)
+          comment = args["comment"]?
+
+          file = Punchfile.read_or_create_for_time(time_in)
+
+          session = Session.new(project)
+          session.in = time_in
+          session.out = time_out
+          session.comments << comment.as(String) unless comment == nil
+
+          file.sessions << session
+          file.save
+
+          puts
+          puts "Added Session".colorize.mode(:bold)
+          puts
+          puts session.to_log
+          puts
         end
       end
 
@@ -197,15 +220,6 @@ module Punch
         end
       end
 
-      punch "watch" do |cmd|
-        cmd.purpose "Continue running to show the status of your current punch in real time."
-
-        cmd.run do |args|
-          # TODO: Implement watch
-          puts "punch watch: Not implemented yet"
-        end
-      end
-
       punch "project <name>" do |cmd|
         cmd.purpose "Show a summary of stats for a project."
         cmd.argument "name", description: "The name of the project to summarize."
@@ -222,16 +236,6 @@ module Punch
           total_pay = Currency.to_usd(punches.sum &.pay)
 
           puts "You have worked on #{name} for a total of #{total_hours} and earned #{total_pay} over #{punches.size} punch#{"es" if punches.size != 1}."
-        end
-      end
-
-      punch "projects [names...]" do |cmd|
-        cmd.purpose "Show summaries for multiple projects."
-        cmd.argument "names", description: "A space-separated list of projects to summarize."
-
-        cmd.run do |args|
-          # TODO: Implement `invoke` so I can alias this to several calls of `project <name>`
-          puts "punch projects: Not implemented yet."
         end
       end
 

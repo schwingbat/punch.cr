@@ -32,10 +32,12 @@ class Punchfile
   end
 
   def sessions
-    @sessions.map do |session|
+    @sessions.each do |session|
       session.punchfile = self
-      session
     end
+    @sessions.sort_by! &.in
+
+    @sessions
   end
 
   def file_path

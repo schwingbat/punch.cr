@@ -234,7 +234,7 @@ module CLI
       br = "\n"
       
       io << br
-      io << indent + "punch v#{Punch::VERSION}/crystal" + br
+      io << indent + "punch v#{Punch::VERSION} / crystal" + br
       io << br
       io << indent + "How to read the command signatures:" + br
       io << indent * 2 + "- a <param> is required" + br
@@ -244,9 +244,9 @@ module CLI
       io << br
       io << indent + "#{"Commands".colorize.mode(:bold)}" + br
       @@commands.each do |cmd|
-        io << indent * 2 + cmd.signature.string.to_s + br
+        io << indent + "#{"punch".colorize(:dark_gray)} #{cmd.signature.string}" + br
         if cmd.purpose
-          io << indent * 3 + cmd.purpose.colorize(:dark_gray).to_s + br
+          io << indent * 3 + cmd.purpose.colorize(:light_gray).to_s + br
         end 
       end
       io << br
